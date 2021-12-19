@@ -2,6 +2,7 @@ package txtpack
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 )
@@ -41,7 +42,7 @@ func MapToPairs(m map[string]string) Pairs {
 func NewPairs(pairs ...Pair) Pairs {
 	return append(make(Pairs, 0, len(pairs)), pairs...)
 }
-func DecodePair(str string) Pair {
+func DecodePairString(str string) Pair {
 	nlIndex := strings.Index(str, NL)
 	if nlIndex < 0 {
 		nlIndex = len(str)
@@ -52,21 +53,36 @@ func DecodePair(str string) Pair {
 	}
 	return P(str[0:sepIndex], str[sepIndex+2:nlIndex])
 }
+
+var nilPair = P("", "")
+var ErrEmptyLine = errors.New("txtpack: empty line")
+
+func DecodePair(src interface {
+	ReadBytes(delim byte) ([]byte, error)
+}) (Pair, error) {
+	line, err := src.ReadBytes(NLChar)
+	if err != nil {
+		return nilPair, err
+	}
+	if line == nil || len(line) == 0 || string(line) == "\n" {
+		return nilPair, ErrEmptyLine
+	}
+	return DecodePairString(string(line)), nil
+}
 func DecodePack(src interface {
 	ReadBytes(delim byte) ([]byte, error)
 }) (Pairs, error) {
 	pairs := NewPairs()
 	for {
-		line, err := src.ReadBytes(NLChar)
+		pair, err := DecodePair(src)
 		if err != nil {
+			if err == ErrEmptyLine {
+				err = nil
+			}
 			return pairs, err
 		}
-		if line == nil || len(line) == 0 || string(line) == "\n" {
-			break
-		}
-		pairs = pairs.Append(DecodePair(string(line)))
+		pairs = pairs.Append(pair)
 	}
-	return pairs, nil
 }
 func (pairs *Pairs) EncodeTo(dst io.StringWriter) {
 	for _, pair := range *pairs {
