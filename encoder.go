@@ -2,8 +2,10 @@ package txtpack
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -13,21 +15,39 @@ const SEP = COLON + " "
 const NLChar = '\n'
 
 type Pair struct {
-	key, val string
+	key string
+	val Value
+}
+type Value string
+
+func (v Value) Bin() ([]byte, error) {
+	return base64.StdEncoding.DecodeString(v.String())
+}
+func (v Value) Int() (int64, error) {
+	return strconv.ParseInt(v.String(), 10, 64)
+}
+func (v Value) String() string {
+	return (string)(v)
+}
+func BinVal(b []byte) Value {
+	return Value(base64.StdEncoding.EncodeToString(b))
 }
 
-func P(key, val string) Pair {
+func IntVal(n int64) Value {
+	return Value(strconv.FormatInt(n, 10))
+}
+func P(key string, val Value) Pair {
 	return Pair{key, val}
 }
 func (p Pair) Key() string {
 	return p.key
 }
-func (p Pair) Value() string {
+func (p Pair) Value() Value {
 	return p.val
 }
 
 func (p Pair) Encode() string {
-	return p.key + SEP + p.val + NL
+	return p.key + SEP + p.val.String() + NL
 }
 
 func (p Pair) HasValue() bool {
@@ -36,7 +56,7 @@ func (p Pair) HasValue() bool {
 
 type Pairs []Pair
 
-func MapToPairs(m map[string]string) Pairs {
+func MapToPairs(m map[string]Value) Pairs {
 	pairs := make(Pairs, 0, len(m))
 	for k, v := range m {
 		pairs = pairs.Append(P(k, v))
@@ -55,7 +75,7 @@ func DecodePairString(str string) Pair {
 	if sepIndex < 0 {
 		return P(str[0:nlIndex], "")
 	}
-	return P(str[0:sepIndex], str[sepIndex+2:nlIndex])
+	return P(str[0:sepIndex], Value(str[sepIndex+2:nlIndex]))
 }
 
 var nilPair = P("", "")
@@ -102,7 +122,7 @@ func (pairs *Pairs) Encode() string {
 	pairs.EncodeTo(dst)
 	return dst.String()
 }
-func (pairs Pairs) Get(key string) string {
+func (pairs Pairs) Get(key string) Value {
 	if pairs.Count() == 0 {
 		return ""
 	}
