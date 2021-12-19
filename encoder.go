@@ -26,6 +26,10 @@ func (p Pair) Value() string {
 	return p.val
 }
 
+func (p Pair) Encode() string {
+	return p.key + SEP + p.val + NL
+}
+
 func (p Pair) HasValue() bool {
 	return p.Value() != ""
 }
@@ -89,10 +93,7 @@ func (pairs *Pairs) EncodeTo(dst io.StringWriter) {
 		if !pair.HasValue() {
 			continue
 		}
-		dst.WriteString(pair.Key())
-		dst.WriteString(SEP)
-		dst.WriteString(pair.Value())
-		dst.WriteString(NL)
+		dst.WriteString(pair.Encode())
 	}
 	dst.WriteString("\n")
 }
